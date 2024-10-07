@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitoreo del Servidor B</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+
+        .metric-container {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .metric {
+            background-color: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+            flex: 1;
+            margin: 10px;
+        }
+
+        .metric h2 {
+            margin-top: 0;
+            color: #333;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        table,
+        th,
+        td {
+            border: 1px solid #ddd;
+        }
+
+        th,
+        td {
+            padding: 10px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+
+        .status {
+            font-weight: bold;
+            color: #fff;
+            padding: 5px 10px;
+            border-radius: 5px;
+        }
+
+        .liviano {
+            background-color: #4caf50;
+        }
+
+        .normal {
+            background-color: #ff9800;
+        }
+
+        .pesado {
+            background-color: #f44336;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Monitoreo del Servidor B</h1>
+
+    <div id="metrics"></div>
+
+    <script>
+        const ws = new WebSocket("ws://tuip:8765");  // Conectar al WebSocket del servidor B
+
+        ws.onmessage = function (event) {
+            const data = JSON.parse(event.data);  // Recibir los datos en JSON
+
+            // Crear el contenido HTML dinámico para mostrar las métricas
+            const metricsContainer = `
+                <div class="metric-container">
+                    <div class="metric">
+                        <h2>CPU Usage</h2>
+                        <p><strong>1 min load:</strong> ${data.cpu_usage["1min_load"]}</p>
+                        <p><strong>5 min load:</strong> ${data.cpu_usage["5min_load"]}</p>
+                        <p><strong>15 min load:</strong> ${data.cpu_usage["15min_load"]}</p>
+                        <p><strong>Status:</strong> <span class="status ${data.cpu_usage.status}">${data.cpu_usage.status}</span></p>
+                    </div>
+                    <div class="metric">
+                        <h2>Memory Usage</h2>
+                        <p><strong>Total Memory:</strong> ${data.memory_usage.total} MB</p>
+                        <p><strong>Used Memory:</strong> ${data.memory_usage.used} MB</p>
+                        <p><strong>Percentage Used:</strong> ${data.memory_usage.percent.toFixed(2)}%</p>
+                        <p><strong>Status:</strong> <span class="status ${data.memory_usage.status}">${data.memory_usage.status}</span></p>
+                    </div>
+                </div>
+
+                <h2>Top 10 Processes</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>PID</th>
+                            <th>Process Name</th>
+                            <th>CPU %</th>
+                            <th>Memory %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.top_10_processes.map(process => `
+                            <tr>
+                                <td>${process.pid}</td>
+                                <td>${process.name}</td>
+                                <td>${process.cpu_percent}</td>
+                                <td>${process.memory_percent}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+
+                <h2>Apache Status</h2>
+                <div class="metric">
+                    <p><strong>Active Connections:</strong> ${data.apache.active_connections}</p>
+
+                    <h3>Apache Process Stats</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>PID</th>
+                                <th>Process Name</th>
+                                <th>CPU %</th>
+                                <th>Memory %</th>
+                                <th>Start Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.apache.process_stats.map(process => `
+                                <tr>
+                                    <td>${process.user}</td>
+                                    <td>${process.pid}</td>
+                                    <td>${process.name}</td>
+                                    <td>${process.cpu_percent}</td>
+                                    <td>${process.memory_percent}</td>
+                                    <td>${process.start_time}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+
+                    <h2>Conexiones activas en Apache (HTTP/HTTPS)</h2>
+                    <pre id="active_connections">${data.apache.active_connections_details.join('\n')}</pre>
+
+                    <h2>Últimas solicitudes a Apache</h2>
+                    <pre id="apache_logs">${data.apache.access_logs.join('\n')}</pre>
+                </div>
+
+                <p><strong>Last updated:</strong> ${data.timestamp}</p>
+            `;
+
+            document.getElementById("metrics").innerHTML = metricsContainer;
+        };
+
+        ws.onclose = function () {
+            document.getElementById("metrics").innerHTML = "<p>Conexión cerrada</p>";
+        };
+
+        ws.onerror = function () {
+            document.getElementById("metrics").innerHTML = "<p>Error en la conexión</p>";
+        };
+    </script>
+</body>
+
+</html>
